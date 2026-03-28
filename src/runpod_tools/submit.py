@@ -3,6 +3,10 @@
 import runpod
 import os
 import logging
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -10,8 +14,9 @@ _LOGGER = logging.getLogger(__name__)
 def launch_training_job(
     image_name: str,
     command: str,
-    gpu_type_id: str = "NVIDIA GeForce RTX 4090",
+    gpu_type_id: str | None = None,
     gpu_count: int = 1,
+    cpu_type_id: str | None = None,
     volume_in_gb: int = 50,
 ) -> str | None:
     """Spins up a RunPod instance, pulls a GHCR image, and runs a command."""
@@ -20,7 +25,14 @@ def launch_training_job(
     if not runpod.api_key:
         raise ValueError("RUNPOD_API_KEY environment variable is missing.")
 
-    _LOGGER.info(f"🚀 Provisioning {gpu_count}x {gpu_type_id}...")
+    if (gpu_type_id is None) == (cpu_type_id is None):
+        msg = "❌ Exactly one of gpu_type_id or cpu_type_id must be provided."
+        raise ValueError(msg)
+
+    if gpu_type_id:
+        _LOGGER.info(f"🚀 Provisioning {gpu_count}x {gpu_type_id}...")
+    elif cpu_type_id:
+        _LOGGER.info(f"🚀 Provisioning CPU instance {cpu_type_id}...")
 
     # Log into GHCR if credentials are provided
     username = os.getenv("GHCR_USERNAME")
@@ -39,6 +51,7 @@ def launch_training_job(
             image_name=image_name,
             gpu_type_id=gpu_type_id,
             gpu_count=gpu_count,
+            instance_id=cpu_type_id,
             volume_in_gb=volume_in_gb,
             container_disk_in_gb=20,
             docker_args=command,  # The command to run on startup
